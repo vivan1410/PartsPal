@@ -200,6 +200,8 @@ function IconUser() {
 }
 
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function App() {
   const [parts, setParts] = useState([]);
   const [kits, setKits] = useState([]);
@@ -220,6 +222,34 @@ function App() {
 
   // Mobile menu drawer state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Notification Preferences States (persisted with localStorage)
+  const [notifyLowStock, setNotifyLowStock] = useState(() => {
+    const saved = localStorage.getItem("partspal_low_stock_notifications");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  const [notifyOverdue, setNotifyOverdue] = useState(() => {
+    const saved = localStorage.getItem("partspal_overdue_notifications");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  const [notifyIssueActivity, setNotifyIssueActivity] = useState(() => {
+    const saved = localStorage.getItem("partspal_issue_notifications");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("partspal_low_stock_notifications", String(notifyLowStock));
+  }, [notifyLowStock]);
+
+  useEffect(() => {
+    localStorage.setItem("partspal_overdue_notifications", String(notifyOverdue));
+  }, [notifyOverdue]);
+
+  useEffect(() => {
+    localStorage.setItem("partspal_issue_notifications", String(notifyIssueActivity));
+  }, [notifyIssueActivity]);
 
   // Issues Modal & Form State
   const [issueModalOpen, setIssueModalOpen] = useState(false);
@@ -315,7 +345,7 @@ function App() {
 
   async function fetchParts() {
     try {
-      const response = await fetch("http://localhost:5000/api/parts");
+      const response = await fetch(`${API_URL}/api/parts`);
       const data = await response.json();
       setParts(data);
     } catch (error) {
@@ -325,7 +355,7 @@ function App() {
 
   async function fetchKits() {
     try {
-      const response = await fetch("http://localhost:5000/api/kits");
+      const response = await fetch(`${API_URL}/api/kits`);
       const data = await response.json();
       setKits(data);
     } catch (error) {
@@ -335,7 +365,7 @@ function App() {
 
   async function fetchIssues() {
     try {
-      const response = await fetch("http://localhost:5000/api/issues");
+      const response = await fetch(`${API_URL}/api/issues`);
       const data = await response.json();
       setIssues(data);
     } catch (error) {
@@ -409,7 +439,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/parts/${stockPartId}/stock`, {
+      const response = await fetch(`${API_URL}/api/parts/${stockPartId}/stock`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: qty })
@@ -456,7 +486,7 @@ function App() {
       }
 
       try {
-        const response = await fetch("http://localhost:5000/api/issues", {
+        const response = await fetch(`${API_URL}/api/issues`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -489,7 +519,7 @@ function App() {
       }
 
       try {
-        const response = await fetch("http://localhost:5000/api/issues", {
+        const response = await fetch(`${API_URL}/api/issues`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -530,7 +560,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/issues/${issue.id}/return`, {
+      const response = await fetch(`${API_URL}/api/issues/${issue.id}/return`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" }
       });
@@ -555,67 +585,103 @@ function App() {
   const notifications = [];
 
   // 1. Low stock parts (available <= 20% of total)
-  parts.forEach((p) => {
-    if (p.total > 0 && p.available <= p.total * 0.20) {
-      notifications.push({
-        id: `low-stock-${p.id}`,
-        type: "low_stock",
-        title: "Low Stock Alert",
-        message: `${p.name} is running low (${p.available}/${p.total} available).`,
-        time: "Low Stock"
-      });
-    }
-  });
+  if (notifyLowStock) {
+    parts.forEach((p) => {
+      if (p.total > 0 && p.available <= p.total * 0.20) {
+        notifications.push({
+          id: `low-stock-${p.id}`,
+          type: "low_stock",
+          title: "Low Stock Alert",
+          message: `${p.name} is running low (${p.available}/${p.total} available).`,
+          time: "Low Stock"
+        });
+      }
+    });
+  }
 
   // 2. Overdue issues (returned === 0 and due_date < todayStr)
-  issues.forEach((i) => {
-    const isPart = Boolean(i.part_id);
-    const name = i.item_name || (isPart ? i.part_name : i.kit_name) || "Item";
-    if (i.returned === 0 && i.due_date < todayStr) {
-      notifications.push({
-        id: `overdue-${i.id}`,
-        type: "overdue",
-        title: "Overdue Item",
-        message: `${name} issued to ${i.member_name} is overdue (due ${i.due_date}).`,
-        time: "Overdue"
-      });
-    }
-  });
+  if (notifyOverdue) {
+    issues.forEach((i) => {
+      const isPart = Boolean(i.part_id);
+      const name = i.item_name || (isPart ? i.part_name : i.kit_name) || "Item";
+      if (i.returned === 0 && i.due_date < todayStr) {
+        notifications.push({
+          id: `overdue-${i.id}`,
+          type: "overdue",
+          title: "Overdue Item",
+          message: `${name} issued to ${i.member_name} is overdue (due ${i.due_date}).`,
+          time: "Overdue"
+        });
+      }
+    });
+  }
 
-  // 3. Recently issued active items (returned === 0 and due_date >= todayStr)
-  issues.forEach((i) => {
-    const isPart = Boolean(i.part_id);
-    const name = i.item_name || (isPart ? i.part_name : i.kit_name) || "Item";
-    if (i.returned === 0 && i.due_date >= todayStr) {
-      notifications.push({
-        id: `active-${i.id}`,
-        type: "issue",
-        title: "Active Issue",
-        message: `${name} issued to ${i.member_name} (due ${i.due_date}).`,
-        time: "Active"
-      });
-    }
-  });
-
-  // 4. Recently returned items (returned === 1)
-  issues.forEach((i) => {
-    const isPart = Boolean(i.part_id);
-    const name = i.item_name || (isPart ? i.part_name : i.kit_name) || "Item";
-    if (i.returned === 1) {
-      notifications.push({
-        id: `returned-${i.id}`,
-        type: "returned",
-        title: "Returned Item",
-        message: `${name} issued to ${i.member_name} has been returned.`,
-        time: "Returned"
-      });
-    }
-  });
+  // 3 & 4. Issue Activity (Active & Returned)
+  if (notifyIssueActivity) {
+    issues.forEach((i) => {
+      const isPart = Boolean(i.part_id);
+      const name = i.item_name || (isPart ? i.part_name : i.kit_name) || "Item";
+      if (i.returned === 0 && i.due_date >= todayStr) {
+        notifications.push({
+          id: `active-${i.id}`,
+          type: "issue",
+          title: "Active Issue",
+          message: `${name} issued to ${i.member_name} (due ${i.due_date}).`,
+          time: "Active"
+        });
+      } else if (i.returned === 1) {
+        notifications.push({
+          id: `returned-${i.id}`,
+          type: "returned",
+          title: "Returned Item",
+          message: `${name} issued to ${i.member_name} has been returned.`,
+          time: "Returned"
+        });
+      }
+    });
+  }
 
   // Member History & Issues Search State
   const [issueSearch, setIssueSearch] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedMemberHistory, setSelectedMemberHistory] = useState(null);
+
+  // Members Page Data Computation
+  const membersMap = {};
+  issues.forEach((issue) => {
+    const reg = (issue.registration_number || "").trim();
+    if (!reg) return;
+    const regKey = reg.toLowerCase();
+    if (!membersMap[regKey]) {
+      membersMap[regKey] = {
+        memberName: issue.member_name || "Unknown Member",
+        registrationNumber: reg,
+        total: 0,
+        active: 0,
+        returned: 0,
+        overdue: 0
+      };
+    }
+    membersMap[regKey].total += 1;
+    if (issue.returned === 1) {
+      membersMap[regKey].returned += 1;
+    } else if (issue.due_date < todayStr) {
+      membersMap[regKey].overdue += 1;
+    } else {
+      membersMap[regKey].active += 1;
+    }
+  });
+
+  const membersList = Object.values(membersMap);
+
+  const filteredMembers = membersList.filter((m) => {
+    if (!memberSearch.trim()) return true;
+    const query = memberSearch.toLowerCase();
+    const matchesName = m.memberName ? m.memberName.toLowerCase().includes(query) : false;
+    const matchesReg = m.registrationNumber ? m.registrationNumber.toLowerCase().includes(query) : false;
+    return matchesName || matchesReg;
+  });
 
   // Filtered Issues Calculation
   const filteredIssues = issues.filter((issue) => {
@@ -772,11 +838,6 @@ function App() {
           </div>
 
           <div className="topbar-right">
-            <div className="system-status">
-              <span className="pulse-dot" aria-hidden="true" />
-              <span>System Online</span>
-            </div>
-
             <button
               className="icon-btn theme-toggle"
               onClick={() => setDarkMode(!darkMode)}
@@ -1354,10 +1415,326 @@ function App() {
             </section>
           )}
 
+          {activePage === "Members" && (
+            <section>
+              <div className="page-title">
+                <div>
+                  <p className="page-label">MEMBERS</p>
+                  <h2>Members</h2>
+                  <p>Manage lab members and their issued equipment.</p>
+                </div>
+              </div>
+
+              <section className="stats-grid">
+                <div className="dashboard-card">
+                  <div className="card-icon blue">
+                    <IconMembers />
+                  </div>
+                  <div className="stat-content">
+                    <span>Total Members</span>
+                    <strong>{membersList.length}</strong>
+                    <small>Registered borrowers</small>
+                  </div>
+                </div>
+
+                <div className="dashboard-card">
+                  <div className="card-icon green">
+                    <IconUser />
+                  </div>
+                  <div className="stat-content">
+                    <span>Active Borrowers</span>
+                    <strong>{membersList.filter(m => m.active > 0 || m.overdue > 0).length}</strong>
+                    <small>Currently holding items</small>
+                  </div>
+                </div>
+
+                <div className="dashboard-card">
+                  <div className="card-icon red">
+                    <IconAlertTriangle />
+                  </div>
+                  <div className="stat-content">
+                    <span>Overdue Members</span>
+                    <strong>{membersList.filter(m => m.overdue > 0).length}</strong>
+                    <small>Has overdue equipment</small>
+                  </div>
+                </div>
+
+                <div className="dashboard-card">
+                  <div className="card-icon orange">
+                    <IconKits />
+                  </div>
+                  <div className="stat-content">
+                    <span>Total Active Issues</span>
+                    <strong>{issues.filter(i => i.returned === 0).length}</strong>
+                    <small>Unreturned items</small>
+                  </div>
+                </div>
+              </section>
+
+              <div className="content-card">
+                <div className="filters" style={{ marginBottom: "20px" }}>
+                  <div className="search-box">
+                    <span className="search-icon"><IconSearch /></span>
+                    <input
+                      type="text"
+                      placeholder="Search members by name or registration number..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                    />
+                    {memberSearch && (
+                      <button
+                        className="clear-search"
+                        onClick={() => setMemberSearch("")}
+                        aria-label="Clear search"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {membersList.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon" style={{ fontSize: "24px", marginBottom: "8px" }}>
+                      <IconMembers />
+                    </div>
+                    <h3>No members found</h3>
+                    <p>No lab members have issued equipment yet.</p>
+                  </div>
+                ) : filteredMembers.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon" style={{ fontSize: "24px", marginBottom: "8px" }}>
+                      <IconSearch />
+                    </div>
+                    <h3>No members match your search</h3>
+                    <p>No member records match "{memberSearch}".</p>
+                  </div>
+                ) : (
+                  <div className="inventory-table-container">
+                    <div className="members-table-header">
+                      <span>MEMBER NAME</span>
+                      <span>REGISTRATION NO.</span>
+                      <span>TOTAL ISSUES</span>
+                      <span>ACTIVE</span>
+                      <span>RETURNED</span>
+                      <span>OVERDUE</span>
+                      <span style={{ textAlign: "right" }}>ACTION</span>
+                    </div>
+
+                    <div className="issues-list">
+                      {filteredMembers.map((m) => (
+                        <div className="members-row" key={m.registrationNumber}>
+                          <div className="member-col">
+                            <div className="member-avatar">
+                              <IconUser />
+                            </div>
+                            <div className="member-name-block">
+                              <strong>{m.memberName}</strong>
+                              <code className="mobile-reg-code">{m.registrationNumber}</code>
+                            </div>
+                          </div>
+
+                          <div className="reg-col desktop-only-reg">
+                            <code>{m.registrationNumber}</code>
+                          </div>
+
+                          <div className="member-stats-group">
+                            <div className="qty-col member-stat-box">
+                              <span className="mobile-stat-label">Total Issues</span>
+                              <span className="stat-val">{m.total}</span>
+                            </div>
+
+                            <div className="qty-col member-stat-box">
+                              <span className="mobile-stat-label">Active</span>
+                              <span className={`stat-val ${m.active > 0 ? "avail-count" : ""}`}>{m.active}</span>
+                            </div>
+
+                            <div className="qty-col member-stat-box">
+                              <span className="mobile-stat-label">Returned</span>
+                              <span className="stat-val">{m.returned}</span>
+                            </div>
+
+                            <div className="qty-col member-stat-box">
+                              <span className="mobile-stat-label">Overdue</span>
+                              <span className={`stat-val ${m.overdue > 0 ? "short-count" : ""}`}>{m.overdue}</span>
+                            </div>
+                          </div>
+
+                          <div className="action-col member-action-col">
+                            <button
+                              className="secondary-btn action-btn view-history-btn"
+                              onClick={() => {
+                                setSelectedMemberHistory({
+                                  memberName: m.memberName,
+                                  registrationNumber: m.registrationNumber
+                                });
+                                setHistoryModalOpen(true);
+                              }}
+                            >
+                              View History
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {activePage === "Settings" && (
+            <section>
+              <div className="page-title">
+                <div>
+                  <p className="page-label">SETTINGS</p>
+                  <h2>Settings</h2>
+                  <p>Configure application preferences, notifications, and system parameters.</p>
+                </div>
+              </div>
+
+              <div className="settings-grid">
+                {/* 1. Appearance Card */}
+                <div className="content-card settings-card">
+                  <div className="settings-card-header">
+                    <h3>Appearance</h3>
+                    <p>Customize the visual theme of the PartsPal interface.</p>
+                  </div>
+
+                  <div className="settings-row">
+                    <div className="settings-info">
+                      <strong>Theme</strong>
+                      <p>Choose how PartsPal looks.</p>
+                    </div>
+
+                    <div className="theme-toggle-group">
+                      <button
+                        className={`theme-option-btn ${darkMode ? "active" : ""}`}
+                        onClick={() => setDarkMode(true)}
+                        type="button"
+                      >
+                        <IconMoon />
+                        <span>Dark</span>
+                      </button>
+                      <button
+                        className={`theme-option-btn ${!darkMode ? "active" : ""}`}
+                        onClick={() => setDarkMode(false)}
+                        type="button"
+                      >
+                        <IconSun />
+                        <span>Light</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Notifications Card */}
+                <div className="content-card settings-card">
+                  <div className="settings-card-header">
+                    <h3>Notifications</h3>
+                    <p>Control which alerts and activity updates are displayed in the notification panel.</p>
+                  </div>
+
+                  <div className="settings-row">
+                    <div className="settings-info">
+                      <strong>Low Stock Alerts</strong>
+                      <p>Show notifications when available stock reaches the low-stock threshold.</p>
+                    </div>
+
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={notifyLowStock}
+                        onChange={(e) => setNotifyLowStock(e.target.checked)}
+                      />
+                      <span className="slider" />
+                    </label>
+                  </div>
+
+                  <div className="settings-row">
+                    <div className="settings-info">
+                      <strong>Overdue Alerts</strong>
+                      <p>Show notifications for items that have passed their due date.</p>
+                    </div>
+
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={notifyOverdue}
+                        onChange={(e) => setNotifyOverdue(e.target.checked)}
+                      />
+                      <span className="slider" />
+                    </label>
+                  </div>
+
+                  <div className="settings-row">
+                    <div className="settings-info">
+                      <strong>Issue Activity</strong>
+                      <p>Show notifications for active issues and returns.</p>
+                    </div>
+
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={notifyIssueActivity}
+                        onChange={(e) => setNotifyIssueActivity(e.target.checked)}
+                      />
+                      <span className="slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* 3. System Information Card */}
+                <div className="content-card settings-card">
+                  <div className="settings-card-header">
+                    <h3>System Information</h3>
+                    <p>Technical details and system status for PartsPal.</p>
+                  </div>
+
+                  <div className="sys-info-grid">
+                    <div className="sys-info-item">
+                      <span>Application</span>
+                      <strong>PartsPal</strong>
+                    </div>
+
+                    <div className="sys-info-item">
+                      <span>Description</span>
+                      <strong>Robotics Lab Inventory & Issue Management System</strong>
+                    </div>
+
+                    <div className="sys-info-item">
+                      <span>Version</span>
+                      <strong>1.0.0</strong>
+                    </div>
+
+                    <div className="sys-info-item">
+                      <span>Status</span>
+                      <strong className="status-online">
+                        <span className="pulse-dot" /> System Online
+                      </strong>
+                    </div>
+
+                    <div className="sys-info-item">
+                      <span>Backend</span>
+                      <strong>Connected to local API</strong>
+                    </div>
+
+                    <div className="sys-info-item">
+                      <span>Database</span>
+                      <strong>SQLite</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {activePage !== "Dashboard" &&
             activePage !== "Inventory" &&
             activePage !== "Issues" &&
-            activePage !== "Kits" && (
+            activePage !== "Kits" &&
+            activePage !== "Members" &&
+            activePage !== "Settings" && (
               <section className="coming-soon">
                 <div className="coming-icon">
                   <IconRocket />
@@ -1793,11 +2170,8 @@ function App() {
                 }
 
                 return (
-                  <div className="inventory-table-container" style={{ marginTop: "10px" }}>
-                    <div
-                      className="issues-table-header"
-                      style={{ gridTemplateColumns: "1.8fr 0.8fr 1.2fr 1fr 1fr" }}
-                    >
+                  <div className="inventory-table-container history-table-container" style={{ marginTop: "10px" }}>
+                    <div className="history-table-header">
                       <span>ITEM / KIT</span>
                       <span>QTY</span>
                       <span>DUE DATE</span>
@@ -1805,50 +2179,52 @@ function App() {
                       <span style={{ textAlign: "right" }}>ACTION</span>
                     </div>
 
-                    <div className="issues-list">
+                    <div className="issues-list history-list">
                       {memberIssues.map((issue) => {
                         const status = getIssueStatus(issue);
                         const isPart = Boolean(issue.part_id);
                         const itemName = issue.item_name || (isPart ? issue.part_name : issue.kit_name);
 
                         return (
-                          <div
-                            className="issues-row"
-                            key={issue.id}
-                            style={{ gridTemplateColumns: "1.8fr 0.8fr 1.2fr 1fr 1fr" }}
-                          >
+                          <div className="history-row" key={issue.id}>
                             <div className="kit-col">
                               <span className="kit-tag">
                                 {isPart ? <IconBolt /> : <IconKits />} {itemName}
                               </span>
                             </div>
 
-                            <div className="qty-col">
-                              <span>{isPart ? issue.quantity : "Kit"}</span>
+                            <div className="history-row-details">
+                              <div className="qty-col history-qty">
+                                <span className="history-mobile-label">Qty:</span>
+                                <span>{isPart ? issue.quantity : "Kit"}</span>
+                              </div>
+
+                              <div className="date-col history-date">
+                                <span className="history-mobile-label">Due:</span>
+                                <span>{issue.due_date}</span>
+                              </div>
                             </div>
 
-                            <div className="date-col">
-                              <span>{issue.due_date}</span>
-                            </div>
+                            <div className="history-row-footer">
+                              <div className="status-col history-status">
+                                <span className={`badge ${status.badgeClass}`}>
+                                  {status.isOverdue && <IconAlertTriangle />}
+                                  {status.label}
+                                </span>
+                              </div>
 
-                            <div className="status-col">
-                              <span className={`badge ${status.badgeClass}`}>
-                                {status.isOverdue && <IconAlertTriangle />}
-                                {status.label}
-                              </span>
-                            </div>
-
-                            <div className="action-col" style={{ textAlign: "right" }}>
-                              {issue.returned === 1 ? (
-                                <span className="returned-text">Returned</span>
-                              ) : (
-                                <button
-                                  className="secondary-btn action-btn"
-                                  onClick={() => handleReturnIssue(issue)}
-                                >
-                                  Return
-                                </button>
-                              )}
+                              <div className="action-col history-action">
+                                {issue.returned === 1 ? (
+                                  <span className="returned-text">Returned</span>
+                                ) : (
+                                  <button
+                                    className="secondary-btn action-btn history-return-btn"
+                                    onClick={() => handleReturnIssue(issue)}
+                                  >
+                                    Return
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
