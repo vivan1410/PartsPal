@@ -136,8 +136,7 @@ PartsPal supports testing across multiple devices (such as a smartphone and lapt
 
 ## 🤖 AI Usage Note
 
-AI tools were used as a development assistant for understanding concepts, debugging, generating implementation suggestions, improving UI responsiveness, testing ideas, and reviewing code. The project was manually tested and integrated by the developer.
-
+AI tools were used as a development assistant for understanding concepts, debugging, generating implementation suggestions, improving UI responsiveness, testing ideas, and reviewing code.
 ---
 
 ## 🔗 Deployment & Live Links
