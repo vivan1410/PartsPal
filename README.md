@@ -136,8 +136,9 @@ PartsPal supports testing across multiple devices (such as a smartphone and lapt
 
 ## 🤖 AI Usage Note
 
-AI tools were used as a development assistant for understanding concepts, debugging, generating implementation suggestions, improving UI responsiveness, testing ideas, and reviewing code.
----
+I used ChatGPT and Google Antigravity as development assistants while building PartsPal.
+
+I used them mainly to understand concepts, debug errors, plan features, improve the UI, and get implementation suggestions. I then tested the changes, reviewed the code, and integrated the features into my project myself.
 
 ## 🔗 Deployment & Live Links
 
