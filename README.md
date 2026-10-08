@@ -140,10 +140,12 @@ AI tools were used as a development assistant for understanding concepts, debugg
 
 ---
 
-## 🔗 Demo Links
+## 🔗 Deployment & Live Links
 
-- **Live Demo**: *To be added after deployment*
-- **Demo Video**: *To be added if required*
+PartsPal is deployed live on **Render**:
+
+- **Live Application**: [https://partspal-3qdb.onrender.com](https://partspal-3qdb.onrender.com)
+- **Backend API**: [https://partspal-backend.onrender.com](https://partspal-backend.onrender.com)
 
 ---
 
