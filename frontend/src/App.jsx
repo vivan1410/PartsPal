@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import QRCode from "qrcode";
 import "./App.css";
 
 // Crisp SVG Icons
@@ -238,6 +239,44 @@ function App() {
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [stockPartId, setStockPartId] = useState("");
   const [stockAddQuantity, setStockAddQuantity] = useState("");
+
+  // QR Code Modal State
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedQrPart, setSelectedQrPart] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrError, setQrError] = useState("");
+
+  const handleOpenQrModal = async (part) => {
+    if (!part) return;
+    setSelectedQrPart(part);
+    setQrError("");
+    setQrDataUrl("");
+    setQrModalOpen(true);
+
+    const qrPayload = JSON.stringify({
+      app: "PartsPal",
+      type: "part",
+      id: part.id,
+      name: part.name,
+      category: part.category
+    });
+
+    try {
+      const url = await QRCode.toDataURL(qrPayload, {
+        margin: 2,
+        width: 180,
+        color: { dark: "#111827", light: "#ffffff" }
+      });
+      setQrDataUrl(url);
+    } catch (err) {
+      console.error("QR generation failed:", err);
+      setQrError("Failed to generate QR code.");
+    }
+  };
+
+  const handlePrintLabel = () => {
+    window.print();
+  };
 
   // Notification State & Click Outside Listener
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -1053,17 +1092,26 @@ function App() {
                             />
                           </div>
 
-                          <button
-                            className="secondary-btn"
-                            style={{ marginTop: "12px", width: "100%" }}
-                            onClick={() => {
-                              setStockPartId(String(part.id));
-                              setStockAddQuantity("");
-                              setStockModalOpen(true);
-                            }}
-                          >
-                            + Add Stock
-                          </button>
+                          <div className="part-card-actions">
+                            <button
+                              className="secondary-btn"
+                              onClick={() => {
+                                setStockPartId(String(part.id));
+                                setStockAddQuantity("");
+                                setStockModalOpen(true);
+                              }}
+                            >
+                              + Add Stock
+                            </button>
+
+                            <button
+                              className="secondary-btn"
+                              onClick={() => handleOpenQrModal(part)}
+                              title="Print QR label for this part"
+                            >
+                              Print QR
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -1817,6 +1865,76 @@ function App() {
                   onClick={() => setHistoryModalOpen(false)}
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* PRINTABLE QR LABEL PREVIEW MODAL */}
+      {qrModalOpen && selectedQrPart && (
+        <div className="modal-backdrop" onClick={() => setQrModalOpen(false)}>
+          <div className="modal-content qr-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Print QR Label</h3>
+                <p>Generate printable physical component tag for lab items.</p>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setQrModalOpen(false)}
+                aria-label="Close modal"
+              >
+                <IconClose />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ alignItems: "center", textAlign: "center" }}>
+              {/* Printable Label Box */}
+              <div id="printable-qr-label" className="printable-qr-card">
+                <div className="qr-label-header">
+                  <strong>PARTSPAL</strong>
+                  <small>ROBOTICS LAB</small>
+                </div>
+
+                <div className="qr-image-container">
+                  {qrError ? (
+                    <div className="qr-error-box">{qrError}</div>
+                  ) : qrDataUrl ? (
+                    <img src={qrDataUrl} alt={`QR Code for ${selectedQrPart.name}`} className="qr-code-img" />
+                  ) : (
+                    <div className="qr-loading-box">Generating QR...</div>
+                  )}
+                </div>
+
+                <div className="qr-label-details">
+                  <h4 className="qr-part-title">{selectedQrPart.name}</h4>
+                  <span className="qr-part-cat">{selectedQrPart.category}</span>
+                  <div className="qr-part-id">Part ID: {selectedQrPart.id}</div>
+                </div>
+
+                <div className="qr-label-stock-summary">
+                  <span>Available: {selectedQrPart.available}</span>
+                  <span>Total: {selectedQrPart.total}</span>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ width: "100%", justifyContent: "space-between", marginTop: "8px" }}>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setQrModalOpen(false)}
+                >
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={handlePrintLabel}
+                  disabled={!qrDataUrl || Boolean(qrError)}
+                >
+                  Print Label
                 </button>
               </div>
             </div>
