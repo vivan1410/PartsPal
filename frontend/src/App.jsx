@@ -573,6 +573,28 @@ function App() {
     }
   });
 
+  // Member History & Issues Search State
+  const [issueSearch, setIssueSearch] = useState("");
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedMemberHistory, setSelectedMemberHistory] = useState(null);
+
+  // Filtered Issues Calculation
+  const filteredIssues = issues.filter((issue) => {
+    if (!issueSearch.trim()) return true;
+    const query = issueSearch.toLowerCase();
+    const matchesName = issue.member_name ? issue.member_name.toLowerCase().includes(query) : false;
+    const matchesReg = issue.registration_number ? issue.registration_number.toLowerCase().includes(query) : false;
+    return matchesName || matchesReg;
+  });
+
+  // Dynamic Issues Summary Stats (calculated from filtered issues)
+  const issuesStats = {
+    total: filteredIssues.length,
+    active: filteredIssues.filter(i => i.returned === 0 && i.due_date >= todayStr).length,
+    returned: filteredIssues.filter(i => i.returned === 1).length,
+    overdue: filteredIssues.filter(i => i.returned === 0 && i.due_date < todayStr).length
+  };
+
   // Status helper logic for issue items
   const getIssueStatus = (issue) => {
     if (issue.returned === 1) {
@@ -1072,13 +1094,54 @@ function App() {
               </div>
 
               <div className="content-card">
-                {issues.length === 0 ? (
+                {/* Search Bar & Dynamic Summary Stats */}
+                <div className="issues-stats-bar">
+                  <div className="stat-pill">
+                    <span>Total Issues</span>
+                    <strong>{issuesStats.total}</strong>
+                  </div>
+                  <div className="stat-pill active-pill">
+                    <span>Active</span>
+                    <strong>{issuesStats.active}</strong>
+                  </div>
+                  <div className="stat-pill returned-pill">
+                    <span>Returned</span>
+                    <strong>{issuesStats.returned}</strong>
+                  </div>
+                  <div className="stat-pill overdue-pill">
+                    <span>Overdue</span>
+                    <strong>{issuesStats.overdue}</strong>
+                  </div>
+                </div>
+
+                <div className="filters" style={{ marginBottom: "16px" }}>
+                  <div className="search-box">
+                    <span className="search-icon"><IconSearch /></span>
+                    <input
+                      type="text"
+                      placeholder="Search issues by member name or registration number..."
+                      value={issueSearch}
+                      onChange={(e) => setIssueSearch(e.target.value)}
+                    />
+                    {issueSearch && (
+                      <button
+                        className="clear-search"
+                        onClick={() => setIssueSearch("")}
+                        aria-label="Clear search"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {filteredIssues.length === 0 ? (
                   <div className="empty-state">
                     <div className="empty-icon">
                       <IconKits />
                     </div>
-                    <h3>No active issues</h3>
-                    <p>All robotics components are currently available in the lab.</p>
+                    <h3>No issues found</h3>
+                    <p>{issueSearch ? `No issue records match "${issueSearch}".` : "All robotics components are currently available in the lab."}</p>
                     <button
                       className="primary-button"
                       style={{ marginTop: "16px" }}
@@ -1103,7 +1166,7 @@ function App() {
                     </div>
 
                     <div className="issues-list">
-                      {issues.map((issue) => {
+                      {filteredIssues.map((issue) => {
                         const status = getIssueStatus(issue);
                         const isPart = Boolean(issue.part_id);
                         const itemName = issue.item_name || (isPart ? issue.part_name : issue.kit_name);
@@ -1144,7 +1207,21 @@ function App() {
                               </span>
                             </div>
 
-                            <div className="action-col">
+                            <div className="action-col" style={{ display: "flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
+                              <button
+                                className="secondary-btn action-btn"
+                                onClick={() => {
+                                  setSelectedMemberHistory({
+                                    memberName: issue.member_name,
+                                    registrationNumber: issue.registration_number
+                                  });
+                                  setHistoryModalOpen(true);
+                                }}
+                                title="View member history"
+                              >
+                                View History
+                              </button>
+
                               {issue.returned === 1 ? (
                                 <span className="returned-text">Returned</span>
                               ) : (
@@ -1579,6 +1656,169 @@ function App() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MEMBER ISSUE HISTORY MODAL */}
+      {historyModalOpen && selectedMemberHistory && (
+        <div className="modal-backdrop" onClick={() => setHistoryModalOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: "680px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Member Issue History</h3>
+                <p>Complete record of parts and kits assigned to this member.</p>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setHistoryModalOpen(false)}
+                aria-label="Close modal"
+              >
+                <IconClose />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Member Profile Header */}
+              <div className="member-history-profile">
+                <div className="member-profile-info">
+                  <div className="member-avatar" style={{ width: "38px", height: "38px", fontSize: "16px" }}>
+                    <IconUser />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: "15px", fontWeight: "700", margin: "0", color: "var(--text-primary)" }}>
+                      {selectedMemberHistory.memberName}
+                    </h4>
+                    <code>{selectedMemberHistory.registrationNumber}</code>
+                  </div>
+                </div>
+
+                {/* Member specific stats breakdown */}
+                {(() => {
+                  const memberIssues = issues.filter(
+                    (i) =>
+                      (i.member_name && i.member_name.toLowerCase() === selectedMemberHistory.memberName.toLowerCase()) ||
+                      (i.registration_number && i.registration_number.toLowerCase() === selectedMemberHistory.registrationNumber.toLowerCase())
+                  );
+                  const mTotal = memberIssues.length;
+                  const mActive = memberIssues.filter((i) => i.returned === 0 && i.due_date >= todayStr).length;
+                  const mReturned = memberIssues.filter((i) => i.returned === 1).length;
+                  const mOverdue = memberIssues.filter((i) => i.returned === 0 && i.due_date < todayStr).length;
+
+                  return (
+                    <div className="member-stats-row">
+                      <div className="m-stat-box">
+                        <span>Total Items</span>
+                        <strong>{mTotal}</strong>
+                      </div>
+                      <div className="m-stat-box">
+                        <span>Active</span>
+                        <strong className="avail-count">{mActive}</strong>
+                      </div>
+                      <div className="m-stat-box">
+                        <span>Returned</span>
+                        <strong>{mReturned}</strong>
+                      </div>
+                      <div className="m-stat-box">
+                        <span>Overdue</span>
+                        <strong className="short-count">{mOverdue}</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Member History Table */}
+              {(() => {
+                const memberIssues = issues.filter(
+                  (i) =>
+                    (i.member_name && i.member_name.toLowerCase() === selectedMemberHistory.memberName.toLowerCase()) ||
+                    (i.registration_number && i.registration_number.toLowerCase() === selectedMemberHistory.registrationNumber.toLowerCase())
+                );
+
+                if (memberIssues.length === 0) {
+                  return (
+                    <div className="empty-state" style={{ padding: "20px" }}>
+                      <p>No issue history found for this member.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="inventory-table-container" style={{ marginTop: "10px" }}>
+                    <div
+                      className="issues-table-header"
+                      style={{ gridTemplateColumns: "1.8fr 0.8fr 1.2fr 1fr 1fr" }}
+                    >
+                      <span>ITEM / KIT</span>
+                      <span>QTY</span>
+                      <span>DUE DATE</span>
+                      <span>STATUS</span>
+                      <span style={{ textAlign: "right" }}>ACTION</span>
+                    </div>
+
+                    <div className="issues-list">
+                      {memberIssues.map((issue) => {
+                        const status = getIssueStatus(issue);
+                        const isPart = Boolean(issue.part_id);
+                        const itemName = issue.item_name || (isPart ? issue.part_name : issue.kit_name);
+
+                        return (
+                          <div
+                            className="issues-row"
+                            key={issue.id}
+                            style={{ gridTemplateColumns: "1.8fr 0.8fr 1.2fr 1fr 1fr" }}
+                          >
+                            <div className="kit-col">
+                              <span className="kit-tag">
+                                {isPart ? <IconBolt /> : <IconKits />} {itemName}
+                              </span>
+                            </div>
+
+                            <div className="qty-col">
+                              <span>{isPart ? issue.quantity : "Kit"}</span>
+                            </div>
+
+                            <div className="date-col">
+                              <span>{issue.due_date}</span>
+                            </div>
+
+                            <div className="status-col">
+                              <span className={`badge ${status.badgeClass}`}>
+                                {status.isOverdue && <IconAlertTriangle />}
+                                {status.label}
+                              </span>
+                            </div>
+
+                            <div className="action-col" style={{ textAlign: "right" }}>
+                              {issue.returned === 1 ? (
+                                <span className="returned-text">Returned</span>
+                              ) : (
+                                <button
+                                  className="secondary-btn action-btn"
+                                  onClick={() => handleReturnIssue(issue)}
+                                >
+                                  Return
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setHistoryModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

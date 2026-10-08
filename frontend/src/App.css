@@ -853,10 +853,99 @@ nav {
   font-weight: 500;
 }
 
+/* ISSUES STATS BAR & MEMBER HISTORY */
+.issues-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-pill {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-pill span {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-pill strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-pill.active-pill strong {
+  color: var(--success-text);
+}
+
+.stat-pill.overdue-pill strong {
+  color: var(--danger-text);
+}
+
+.stat-pill.returned-pill strong {
+  color: var(--text-secondary);
+}
+
+.member-history-profile {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.member-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.member-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.m-stat-box {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.m-stat-box span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.m-stat-box strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 /* ISSUES TABLE & LIST */
 .issues-table-header {
   display: grid;
-  grid-template-columns: 1.8fr 1.4fr 1.6fr 0.8fr 1.1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1.3fr 1.5fr 0.7fr 1fr 0.9fr 1.8fr;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   font-size: 10px;
@@ -872,7 +961,7 @@ nav {
 
 .issues-row {
   display: grid;
-  grid-template-columns: 1.8fr 1.4fr 1.6fr 0.8fr 1.1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1.3fr 1.5fr 0.7fr 1fr 0.9fr 1.8fr;
   align-items: center;
   padding: 12px;
   border-bottom: 1px solid var(--border-color);
